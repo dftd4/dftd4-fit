@@ -34,11 +34,22 @@ module dftd4_cli
    type, abstract :: cli_config
    end type cli_config
 
+   !> Configuration for parameter optimization
    type, extends(cli_config) :: fit_config
+      !> Input file for data set
       character(len=:), allocatable :: input
+      !> Verbosity of the output
       integer :: verbosity = 2
+      !> Selected algorithm
       character(len=:), allocatable :: algorithm
+      !> Directory containing the data set
       character(len=:), allocatable :: directory
+      !> Tolerance for convergence of error in parameters
+      real(wp), allocatable :: xtol
+      !> Tolerance for convergence of error on data set
+      real(wp), allocatable :: ftol
+      !> Starting parameters
+      real(wp), allocatable :: x(:)
    end type fit_config
 
 contains
@@ -109,6 +120,12 @@ subroutine get_fit_arguments(config, list, start, error)
       case("--version")
          call version(output_unit)
          stop
+      case("--license")
+         call license(output_unit)
+         stop
+      case("--citation")
+         call citation(output_unit)
+         stop
       case("-v", "--verbose")
          config%verbosity = config%verbosity + 1
       case("-s", "--silent")
@@ -140,9 +157,47 @@ subroutine get_fit_arguments(config, list, start, error)
             exit
          end if
          call move_alloc(arg, config%algorithm)
+      case("--ftol")
+         allocate(config%ftol)
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%ftol, error)
+         if (allocated(error)) exit
+      case("--xtol")
+         allocate(config%xtol)
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%xtol, error)
+         if (allocated(error)) exit
+      case("--param")
+         allocate(config%x(3))
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%x(1), error)
+         if (allocated(error)) exit
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%x(2), error)
+         if (allocated(error)) exit
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%x(3), error)
+         if (allocated(error)) exit
       end select
    end do
    if (allocated(error)) return
+
+   if (.not.allocated(config%algorithm)) then
+      config%algorithm = "LN_NEWUOA_BOUND"
+   end if
+
+   if (.not.allocated(config%x)) then
+      config%x = [1.0_wp, 0.4_wp, 5.0_wp]
+   end if
+
+   if (.not.any([allocated(config%xtol), allocated(config%ftol)])) then
+      config%xtol = 1.0e-4_wp
+   end if
 
    if (.not.allocated(config%input)) then
       if (.not.allocated(error)) then
@@ -188,14 +243,20 @@ subroutine help(unit)
 
    write(unit, '(a)') &
       "", &
-      "Generally Applicable Atomic-Charge Dependent London Dispersion Correction.", &
+      "Optimization driver for damping parameters in DFT-D4 using NLOpt.", &
+      "As input a data set is required containing the missing dispersion energies", &
+      "for the respective functional in Hartree.", &
       ""
 
    write(unit, '(2x, a, t25, a)') &
       "-v, --verbose", "Show more, can be used multiple times", &
       "-s, --silent", "Show less, use twice to supress all output", &
       "    --algorithm <str>", "Name of the algorithm used for optimization", &
+      "", "available algorithms can be found at https://nlopt.rtfd.io", &
       "-C, --directory <dir>", "Directory containing data set", &
+      "    --ftol <real>", "Tolerance for convergence of error on data set", &
+      "    --xtol <real>", "Tolerance for convergence of parameters", &
+      "    --param <real>...", "Initial parameters (s8, a1, a2)", &
       "    --version", "Print program version and exit", &
       "    --citation", "Print citation information and exit", &
       "    --license", "Print license header and exit", &

@@ -14,7 +14,7 @@
 ! You should have received a copy of the Lesser GNU General Public License
 ! along with dftd4.  If not, see <https://www.gnu.org/licenses/>.
 
-!> Entry point for running single point calculations with dftd4
+!> Entry point for fitting damping parameters with dftd4
 module dftd4_driver
    use, intrinsic :: iso_fortran_env, only : output_unit, input_unit
    use mctc_env, only : error_type, fatal_error, wp
@@ -31,24 +31,38 @@ module dftd4_driver
 
    public :: main
 
+   !> An entry in the data set
    type :: entry_type
+      !> Directory containing the structure input
       character(len=:), allocatable :: dir
    end type entry_type
 
+   !> Record in the data set
    type :: record_type
+      !> Coefficients for the individual entries
       integer, allocatable :: coeffs(:)
+      !> Indices of the entries creatin the record
       integer, allocatable :: idx(:)
+      !> Reference to optimize against
       real(wp) :: reference = 0.0_wp
    end type record_type
 
+   !> Working information for evaluating an entry
    type :: job_type
+      !> Molecular structure data
       type(structure_type) :: mol
+      !> Dispersion model
       type(d4_model) :: d4
    end type job_type
 
+   !> Complete data set for the optimization
    type :: dataset_type
+      !> All records forming the data set
       type(record_type), allocatable :: records(:)
+      !> Jobs representing the entries in the records
       type(job_type), allocatable :: jobs(:)
+      !> Unit for output
+      integer :: io = output_unit
    end type dataset_type
 
 contains
@@ -56,10 +70,8 @@ contains
 
 !> Main entry point for the driver
 subroutine main(config, error)
-
    !> Configuration for this driver
    class(cli_config), intent(in) :: config
-
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -69,17 +81,17 @@ subroutine main(config, error)
    class default
       call fatal_error(error, "Unknown runtime selected")
    type is(fit_config)
-      call fit_main(config, error)
+      call fit_main(output_unit, config, error)
    end select
 end subroutine main
 
 
 !> Entry point for the fit driver
-subroutine fit_main(config, error)
-
+subroutine fit_main(io, config, error)
+   !> Unit for output
+   integer, intent(in) :: io
    !> Configuration for this driver
    type(fit_config), intent(in) :: config
-
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -91,81 +103,87 @@ subroutine fit_main(config, error)
    type(nlopt_opt) :: opt
 
    inquire(file=config%input, exist=exist)
-   if (.not.exist) error stop
+   if (.not.exist) then
+      call fatal_error(error, "Data file '"//config%input//" not found")
+      return
+   end if
 
    call read_dataset(config%input, dataset, config%directory, error)
    if (allocated(error)) return
+   dataset%io = io
 
-   print '(a, 1x, i0)', "Number of data points", size(dataset%records)
-   print '(a, 1x, i0)', "Number of evaluations", size(dataset%jobs)
+   write(io, '(a, 1x, i0)') "Number of data points", size(dataset%records)
+   write(io, '(a, 1x, i0)') "Number of evaluations", size(dataset%jobs)
 
+   x = config%x
    associate(ialg => algorithm_from_string(config%algorithm))
       if (ialg <= 0) then
          call fatal_error(error, "Invalid algorithm '"//config%algorithm//"'")
          return
       end if
-      call create(opt, ialg, 3)
+      call create(opt, ialg, size(x))
    end associate
 
-   call opt%set_xtol_rel(1.0e-4_wp, stat)
-   call opt%set_lower_bounds1(0.0_wp, stat)
-   call opt%set_upper_bounds1(10.0_wp, stat)
-   x = [0.6_wp, 0.5_wp, 6.0_wp]
+   if (allocated(config%xtol)) then
+      call opt%set_xtol_rel(config%xtol)
+   end if
+   if (allocated(config%ftol)) then
+      call opt%set_ftol_rel(config%ftol)
+   end if
+   call opt%set_lower_bounds1(0.0_wp)
+   call opt%set_upper_bounds1(10.0_wp)
 
    associate(f => nlopt_func(evaluator, dataset))
-      call opt%set_min_objective(f, stat)
+      call opt%set_min_objective(f)
       call opt%optimize(x, obj, stat)
    end associate
+   if (stat < 0) then
+      call fatal_error(error, "Optimization failed with "//result_to_string(stat))
+   else
+      write(io, '(a)') "Optimization terminated with status "//result_to_string(stat)
+   end if
 
-   print '(a)', "Final parameters"
-   print *, x
+   write(io, '(a)') "Final parameters"
+   write(io, *) x
 end subroutine fit_main
 
 
+!> Call back for evaulation of the data set
 function evaluator(x, gradient, func_data) result(f)
+   !> Current parameters
    real(wp), intent(in) :: x(:)
+   !> Gradient of objective function
    real(wp), intent(inout), optional :: gradient(:)
+   !> Data set for evaluation
    class(*), intent(in), optional :: func_data
+   !> Objective function
    real(wp) :: f
 
    class(damping_param), allocatable :: param
-   type(error_type), allocatable :: error
-   real(wp), parameter :: step = 1.0e-4_wp
-   integer :: i
-   real(wp) :: fl, fr
-   real(wp), allocatable :: y(:)
-   type(dataset_type) :: dataset
 
-   if (.not.present(func_data)) error stop
+   if (.not.present(func_data)) &
+      error stop "Implementation error: data pointer not passed to callback"
 
    param = from_array(x)
 
    select type(func_data)
    type is(dataset_type)
-      call single_eval(func_data, param, f, 1, error)
+      call single_eval(func_data, param, f, 1)
 
       if (present(gradient)) then
-         y = x
-         dataset = func_data
-         !$omp parallel do default(shared) schedule(static) &
-         !$omp shared(dataset, param, x, gradient) &
-         !$omp private(i, fl, fr) firstprivate(y)
-         do i = 1, size(x)
-            y(i) = x(i) + step
-            param = from_array(y)
-            call single_eval(dataset, from_array(y), fl, 0, error)
-            y(i) = x(i) - 2*step
-            param = from_array(y)
-            call single_eval(dataset, from_array(y), fr, 0, error)
-            gradient(i) = (fl - fr)/(2*step)
-            y(i) = x(i) + step
-         end do
+         call grad_eval(func_data, x, gradient)
       end if
+   class default
+      error stop "Implementation error: data set not available in callback"
    end select
 end function evaluator
 
+
+!> Create damping parameters from parameter array
 function from_array(x) result(param)
+   !> Current parameter set
    real(wp), intent(in) :: x(:)
+   !> Damping parameter object
    type(rational_damping_param) :: param
 
    param%s6 = 1.0_wp
@@ -176,12 +194,16 @@ function from_array(x) result(param)
 end function from_array
 
 
-subroutine single_eval(dataset, param, obj, verbosity, error)
+!> Evaluate objective function
+subroutine single_eval(dataset, param, obj, verbosity)
+   !> Data set for optimization
    type(dataset_type), intent(in) :: dataset
+   !> Current damping parameters
    class(damping_param), intent(in) :: param
+   !> Objective function
    real(wp), intent(out) :: obj
+   !> Verbosity of printout
    integer, intent(in) :: verbosity
-   type(error_type), allocatable, intent(out) :: error
 
    integer :: ijob, irec
    real(wp), allocatable :: actual(:)
@@ -189,7 +211,7 @@ subroutine single_eval(dataset, param, obj, verbosity, error)
 
    allocate(energy(size(dataset%jobs)))
    !$omp parallel do default(none) schedule(dynamic) &
-   !$omp shared(dataset, energy, param) private(ijob, error)
+   !$omp shared(dataset, energy, param) private(ijob)
    do ijob = 1, size(dataset%jobs)
       call run_job(dataset%jobs(ijob), param, energy(ijob))
    end do
@@ -205,7 +227,7 @@ subroutine single_eval(dataset, param, obj, verbosity, error)
    end do
    obj = sum((actual - dataset%records%reference)**2)/size(dataset%records)
    if (verbosity > 0) then
-      print '(*(1x, a, 1x, f10.6))', &
+      write(dataset%io, '(*(1x, a, 1x, f10.6))') &
          & "MD", sum(actual - dataset%records%reference)/size(actual) * autokcal, &
          & "MAD", sum(abs(actual - dataset%records%reference))/size(actual) * autokcal, &
          & "RMSD", sqrt(obj) * autokcal
@@ -213,8 +235,43 @@ subroutine single_eval(dataset, param, obj, verbosity, error)
 end subroutine single_eval
 
 
+!> Evaluate gradient of objective function by numerical differentation
+subroutine grad_eval(dataset, x, gradient)
+   !> Data set for optimization
+   type(dataset_type), intent(in) :: dataset
+   !> Current parameter vector
+   real(wp), intent(in) :: x(:)
+   !> Gradient of objective function
+   real(wp), intent(inout) :: gradient(:)
+
+   real(wp), parameter :: step = 1.0e-4_wp
+   integer :: i
+   real(wp) :: fl, fr
+   real(wp), allocatable :: y(:)
+   class(damping_param), allocatable :: param
+
+   y = x
+   !$omp parallel do default(shared) schedule(static) &
+   !$omp shared(dataset, param, x, gradient) &
+   !$omp private(i, fl, fr) firstprivate(y)
+   do i = 1, size(x)
+      y(i) = x(i) + step
+      param = from_array(y)
+      call single_eval(dataset, from_array(y), fl, 0)
+      y(i) = x(i) - 2*step
+      param = from_array(y)
+      call single_eval(dataset, from_array(y), fr, 0)
+      gradient(i) = (fl - fr)/(2*step)
+      y(i) = x(i) + step
+   end do
+end subroutine grad_eval
+
+
+!> Create job for evaluation of an entry of a data set
 subroutine create_job(job, lentry, directory, error)
+   !> Working instructions for entry
    type(job_type), intent(out) :: job
+   !> Entry to be expanded
    type(entry_type), intent(in) :: lentry
    !> Working directory
    character(len=*), intent(in), optional :: directory
@@ -257,9 +314,13 @@ subroutine create_job(job, lentry, directory, error)
 end subroutine create_job
 
 
+!> Evaluate entry of a data set
 subroutine run_job(job, param, energy)
+   !> Work to be runned
    type(job_type), intent(in) :: job
+   !> Current damping parameters
    class(damping_param), intent(in) :: param
+   !> Dispersion energy
    real(wp), intent(out) :: energy
 
    character(len=:), allocatable :: input
@@ -276,16 +337,12 @@ end subroutine run_job
 
 !> Read the dataset from the input file
 subroutine read_dataset(filename, dataset, directory, error)
-   
    !> File name
    character(len=*), intent(in) :: filename
-
    !> Data set for fitting
    type(dataset_type), intent(out) :: dataset
-
    !> Working directory
    character(len=*), intent(in), optional :: directory
-
    !> Error handling
    type(error_type), allocatable, intent(out) :: error
 
@@ -315,13 +372,10 @@ end subroutine read_dataset
 
 !> Read record from a line
 subroutine read_record(line, record, entries)
-
    !> Line
    character(len=*), intent(in) :: line
-
    !> Record
    type(record_type), intent(out) :: record
-
    !> Entries
    type(entry_type), allocatable, intent(inout) :: entries(:)
 
@@ -355,6 +409,7 @@ subroutine read_record(line, record, entries)
 end subroutine read_record
 
 
+!> Add new entry to table
 subroutine push_back(entries, lentry)
    !> Entries
    type(entry_type), allocatable, intent(inout) :: entries(:)
@@ -370,6 +425,7 @@ subroutine push_back(entries, lentry)
 end subroutine push_back
 
 
+!> Find existing entry in table
 function find(entries, dir) result(pos)
    !> Entries
    type(entry_type), allocatable, intent(inout) :: entries(:)
