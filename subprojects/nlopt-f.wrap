@@ -1,0 +1,4 @@
+[wrap-git]
+directory = nlopt-f
+url = https://github.com/grimme-lab/nlopt-f
+revision = head
