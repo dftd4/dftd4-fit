@@ -21,7 +21,7 @@ module dftd4_driver
    use mctc_io, only: structure_type, read_structure, filetype
    use mctc_io_convert, only: autokcal
    use dftd4, only: get_dispersion, d4_model, new_d4_model, &
-   realspace_cutoff, damping_param, rational_damping_param
+      realspace_cutoff, damping_param, rational_damping_param
    use dftd4_utils, only: wrap_to_central_cell
    use dftd4_cli, only: cli_config, fit_config, header
    use nlopt_wrap
@@ -92,7 +92,7 @@ contains
       type(fit_config), intent(in) :: config
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
-      !> Complete data set for the optimization
+      ! Complete data set for the optimization
       type(dataset_type) :: dataset
       logical :: exist
       integer :: stat
@@ -149,9 +149,9 @@ contains
       !> Integer work array for minpack of length n
       integer, allocatable :: iwa(:)
 
-      !> Unit for output
+      ! Unit for output
       integer :: io
-      !> Exit parameter
+      ! Exit parameter
       integer :: info
 
       intrinsic :: norm2
