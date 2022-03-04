@@ -7,8 +7,9 @@ dftd4-fit - Damping parameter optimization for DFT-D4
 == Synopsis
 *dftd4-fit* [-h|--help] [--version] [--license] [--citation]
             [-v|--verbose] [-s|--silent]
-            [-C|--directory <directory>] [--algorithm <algorithm>]
-            [--ftol <tol>] [--xtol <tol>] [--param <s8> <a1> <a2>]
+            [-C|--directory <directory>] [--optimizer <optimizer>] 
+            [--algorithm <algorithm>] [--ftol <tol>]
+            [--xtol <tol>] [--param <s8> <a1> <a2>]
             <input>
 
 == Description
@@ -40,6 +41,10 @@ the respective directories, like present in https://github.com/dftd4/dftd4-fitse
 
 *-s, --silent*::
   Show less, use twice to supress all output
+
+*--optimizer* _str_::
+  Name of the library used for optimization.
+  Options: MINPACK (default) and NLOPT
 
 *--algorithm* _str_::
   Name of the algorithm used for optimization.
