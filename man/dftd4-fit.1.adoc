@@ -42,7 +42,7 @@ the respective directories, like present in https://github.com/dftd4/dftd4-fitse
 *-s, --silent*::
   Show less, use twice to supress all output
 
-*--algorithm* _str_::
+*--optimizer* _str_::
   Name of the library used for optimization.
   Options: MINPACK (default) and NLOPT
 
