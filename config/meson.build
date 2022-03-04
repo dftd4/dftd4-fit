@@ -62,3 +62,10 @@ nlopt_dep = dependency(
   default_options: ['default_library=static'],
 )
 exe_deps += nlopt_dep
+
+minpack_dep = dependency(
+  'minpack',
+  fallback: ['minpack', 'minpack_dep'],
+  default_options: ['default_library=static'],
+)
+exe_deps += minpack_dep

@@ -1,0 +1,4 @@
+[wrap-git]
+directory = minpack
+url = https://github.com/fortran-lang/minpack.git
+revision = head
