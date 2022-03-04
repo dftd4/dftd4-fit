@@ -21,12 +21,12 @@ module dftd4_driver
    use mctc_io, only: structure_type, read_structure, filetype
    use mctc_io_convert, only: autokcal
    use dftd4, only: get_dispersion, d4_model, new_d4_model, &
-                    realspace_cutoff, damping_param, rational_damping_param
+   realspace_cutoff, damping_param, rational_damping_param
    use dftd4_utils, only: wrap_to_central_cell
    use dftd4_cli, only: cli_config, fit_config, header
    use nlopt_wrap
    use nlopt_enum
-   use minpack_module, only: enorm, lmdif1
+   use minpack_module, only: lmdif1
    implicit none
    private
 
@@ -67,7 +67,6 @@ module dftd4_driver
    end type dataset_type
 
 contains
-
    !> Main entry point for the driver
    subroutine main(config, error)
       !> Configuration for this driver
@@ -93,7 +92,7 @@ contains
       type(fit_config), intent(in) :: config
       !> Error handling
       type(error_type), allocatable, intent(out) :: error
-
+      !> Complete data set for the optimization
       type(dataset_type) :: dataset
       logical :: exist
       integer :: stat
@@ -130,30 +129,32 @@ contains
    subroutine run_minpack(dataset, config, x, verbosity)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
-      ! minpack
+      !> Complete data set for the optimization
       type(dataset_type), intent(in) :: dataset
-      !> independant variable vector
+      !> Independant variable vector
       real(wp), allocatable, intent(out) :: x(:)
-      !> amount of print
+      !> Verbosity of printout
       integer, intent(in) :: verbosity
 
-      !> number of datapoints/functions
+      !> Number of datapoints/functions
       integer :: m
-      !> number of variables (n must not exceed m)
+      !> Number of variables (n must not exceed m)
       integer :: n
-      !> termination criterium
+      !> Termination criterium
       real(wp) :: tol
-      !> value of function at x
+      !> Value of function at x
       real(wp), allocatable :: fvec(:)
-      !> work array for minpack
+      !> Work array for minpack
       real(wp), allocatable :: wa(:)
-      !> integer work array for minpack of length n
+      !> Integer work array for minpack of length n
       integer, allocatable :: iwa(:)
 
       !> Unit for output
       integer :: io
-
+      !> Exit parameter
       integer :: info
+
+      intrinsic :: norm2
 
       ! initial guess for parameters
       x = config%x
@@ -163,7 +164,7 @@ contains
       n = size(x)
       m = size(dataset%records)
 
-      ! Set tol to the square root of the machine precision. Unless high
+      ! Set "tol" to the square root of the machine precision. Unless high
       ! precision solutions are required, this is the recommended setting.
       tol = sqrt(epsilon(1._wp))
 
@@ -175,10 +176,10 @@ contains
 
       call lmdif1(fcn, m, n, x, fvec, tol, info, iwa, wa, size(wa))
 
-      write (io, '(/, a, f15.7)') 'Final L2 norm of the residuals:', enorm(m, fvec)
+      write (io, '(/, a, f15.7)') 'Final L2 norm of the residuals:', norm2(fvec)
       write (io, '(a, 13x, i10, /)') 'Exit parameter:', info
    contains
-      !> the user-supplied subroutine which calculates the functions.
+      !> User-supplied subroutine which calculates the functions
       subroutine fcn(m, n, x, fvec, iflag)
          !> Number of datapoints/functions
          integer, intent(in) :: m
@@ -233,9 +234,9 @@ contains
    subroutine run_nlopt(dataset, config, x, error)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
-      ! minpack
+      !> Complete data set for the optimization
       type(dataset_type), intent(in) :: dataset
-      !> independant variable vector
+      !> Independant variable vector
       real(wp), allocatable, intent(out) :: x(:)
       !> Error handling
       type(error_type), allocatable, intent(inout) :: error
@@ -260,7 +261,7 @@ contains
          call create(opt, ialg, size(x))
       end associate
 
-      write (io, '(/, a)') "Optimizing (using NLOPT with '"//config%algorithm//"' algorithm) ..." 
+      write (io, '(/, a)') "Optimizing (using NLOPT with '"//config%algorithm//"' algorithm) ..."
 
       if (allocated(config%xtol)) then
          call opt%set_xtol_rel(config%xtol)
@@ -363,6 +364,7 @@ contains
       if (verbosity > 0) then
          allocate (err(size(dataset%records)))
          err = actual - dataset%records%reference
+
          write (dataset%io, '(*(4x, a, 1x, f7.4))') &
           & "MD", sum(err)/size(err)*autokcal, &
           & "MAD", sum(abs(err))/size(err)*autokcal, &
