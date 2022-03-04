@@ -68,7 +68,7 @@ module dftd4_driver
 
 contains
 
-!> Main entry point for the driver
+   !> Main entry point for the driver
    subroutine main(config, error)
       !> Configuration for this driver
       class(cli_config), intent(in) :: config
@@ -85,7 +85,7 @@ contains
       end select
    end subroutine main
 
-!> Entry point for the fit driver
+   !> Entry point for the fit driver
    subroutine fit_main(io, config, error)
       !> Unit for output
       integer, intent(in) :: io
@@ -126,7 +126,7 @@ contains
       write (io, *) x
    end subroutine fit_main
 
-!> Wrapper for MINPACK optimizer
+   !> Wrapper for MINPACK optimizer
    subroutine run_minpack(dataset, config, x, verbosity)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
@@ -180,15 +180,15 @@ contains
    contains
       !> the user-supplied subroutine which calculates the functions.
       subroutine fcn(m, n, x, fvec, iflag)
-         !> number of datapoints/functions
+         !> Number of datapoints/functions
          integer, intent(in) :: m
-         !> number of variables (n must not exceed m)
+         !> Number of variables (n must not exceed m)
          integer, intent(in) :: n
-         !> independant variable vector
+         !> Independant variable vector
          real(wp), intent(in) :: x(n)
-         !> value of function at x
+         !> Value of function at x
          real(wp), intent(out) :: fvec(m)
-         !> status
+         !> Status
          integer, intent(inout) :: iflag
 
          integer :: ijob, irec
@@ -196,6 +196,8 @@ contains
          real(wp), allocatable :: energy(:)
 
          class(damping_param), allocatable :: param
+
+         if (iflag == 0) return
 
          param = from_array(x)
 
@@ -218,7 +220,6 @@ contains
          fvec = actual - dataset%records%reference
 
          if (verbosity > 0) then
-            ! write (io, '(*(f13.8))', advance="no") x
             write (io, '(*(4x, a, 1x, f7.4))') &
                & "MD", sum(fvec)/size(fvec)*autokcal, &
                & "MAD", sum(abs(fvec))/size(fvec)*autokcal, &
@@ -228,7 +229,7 @@ contains
       end subroutine fcn
    end subroutine run_minpack
 
-!> Wrapper for NLOPT optimizer
+   !> Wrapper for NLOPT optimizer
    subroutine run_nlopt(dataset, config, x, error)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
@@ -281,7 +282,7 @@ contains
       end if
    end subroutine run_nlopt
 
-!> Call back for evaulation of the data set
+   !> Call back for evaulation of the data set
    function evaluator(x, gradient, func_data) result(f)
       !> Current parameters
       real(wp), intent(in) :: x(:)
@@ -311,7 +312,7 @@ contains
       end select
    end function evaluator
 
-!> Create damping parameters from parameter array
+   !> Create damping parameters from parameter array
    function from_array(x) result(param)
       !> Current parameter set
       real(wp), intent(in) :: x(:)
@@ -325,7 +326,7 @@ contains
       param%s9 = 1.0_wp
    end function from_array
 
-!> Evaluate objective function
+   !> Evaluate objective function
    subroutine single_eval(dataset, param, obj, verbosity)
       !> Data set for optimization
       type(dataset_type), intent(in) :: dataset
@@ -362,7 +363,6 @@ contains
       if (verbosity > 0) then
          allocate (err(size(dataset%records)))
          err = actual - dataset%records%reference
-         ! write (dataset%io, '(*(f13.8))', advance="no") param
          write (dataset%io, '(*(4x, a, 1x, f7.4))') &
           & "MD", sum(err)/size(err)*autokcal, &
           & "MAD", sum(abs(err))/size(err)*autokcal, &
@@ -371,7 +371,7 @@ contains
       end if
    end subroutine single_eval
 
-!> Evaluate gradient of objective function by numerical differentation
+   !> Evaluate gradient of objective function by numerical differentation
    subroutine grad_eval(dataset, x, gradient)
       !> Data set for optimization
       type(dataset_type), intent(in) :: dataset
@@ -402,7 +402,7 @@ contains
       end do
    end subroutine grad_eval
 
-!> Create job for evaluation of an entry of a data set
+   !> Create job for evaluation of an entry of a data set
    subroutine create_job(job, lentry, directory, error)
       !> Working instructions for entry
       type(job_type), intent(out) :: job
@@ -448,7 +448,7 @@ contains
 
    end subroutine create_job
 
-!> Evaluate entry of a data set
+   !> Evaluate entry of a data set
    subroutine run_job(job, param, energy)
       !> Work to be runned
       type(job_type), intent(in) :: job
@@ -468,7 +468,7 @@ contains
 
    end subroutine run_job
 
-!> Read the dataset from the input file
+   !> Read the dataset from the input file
    subroutine read_dataset(filename, dataset, directory, error)
       !> File name
       character(len=*), intent(in) :: filename
@@ -502,7 +502,7 @@ contains
       end do
    end subroutine read_dataset
 
-!> Read record from a line
+   !> Read record from a line
    subroutine read_record(line, record, entries)
       !> Line
       character(len=*), intent(in) :: line
@@ -540,7 +540,7 @@ contains
       read (line(first:), *, iostat=stat) record%reference
    end subroutine read_record
 
-!> Add new entry to table
+   !> Add new entry to table
    subroutine push_back(entries, lentry)
       !> Entries
       type(entry_type), allocatable, intent(inout) :: entries(:)
@@ -555,7 +555,7 @@ contains
       if (pos == 0) entries = [entries, lentry]
    end subroutine push_back
 
-!> Find existing entry in table
+   !> Find existing entry in table
    function find(entries, dir) result(pos)
       !> Entries
       type(entry_type), allocatable, intent(inout) :: entries(:)
@@ -575,7 +575,7 @@ contains
       end do
    end function find
 
-!> Consume a whole line from a formatted unit
+   !> Consume a whole line from a formatted unit
    subroutine getline(unit, line, iostat, iomsg)
       !> Formatted IO unit
       integer, intent(in) :: unit
