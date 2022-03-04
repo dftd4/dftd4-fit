@@ -40,6 +40,8 @@ module dftd4_cli
       character(len=:), allocatable :: input
       !> Verbosity of the output
       integer :: verbosity = 2
+      !> Selected optimizer
+      character(len=:), allocatable :: optimizer
       !> Selected algorithm
       character(len=:), allocatable :: algorithm
       !> Directory containing the data set
@@ -157,6 +159,14 @@ subroutine get_fit_arguments(config, list, start, error)
             exit
          end if
          call move_alloc(arg, config%algorithm)
+      case("--optimizer")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for optimizer")
+            exit
+         end if
+         call move_alloc(arg, config%optimizer)
       case("--ftol")
          allocate(config%ftol)
          iarg = iarg + 1
@@ -186,6 +196,10 @@ subroutine get_fit_arguments(config, list, start, error)
       end select
    end do
    if (allocated(error)) return
+
+   if (.not.allocated(config%optimizer)) then
+      config%optimizer = "MINPACK"
+   end if
 
    if (.not.allocated(config%algorithm)) then
       config%algorithm = "LN_NEWUOA_BOUND"
@@ -243,7 +257,7 @@ subroutine help(unit)
 
    write(unit, '(a)') &
       "", &
-      "Optimization driver for damping parameters in DFT-D4 using NLOpt.", &
+      "Optimization driver for damping parameters in DFT-D4 using NLOpt or MINPACK.", &
       "As input a data set is required containing the missing dispersion energies", &
       "for the respective functional in Hartree.", &
       ""
@@ -251,8 +265,10 @@ subroutine help(unit)
    write(unit, '(2x, a, t25, a)') &
       "-v, --verbose", "Show more, can be used multiple times", &
       "-s, --silent", "Show less, use twice to supress all output", &
+      "    --optimizer <str>", "Name of the library used for optimization", &
+      "", "options: MINPACK (default) and NLOPT", &
       "    --algorithm <str>", "Name of the algorithm used for optimization", &
-      "", "available algorithms can be found at https://nlopt.rtfd.io", &
+      "", "available algorithms for NLOPT can be found at https://nlopt.rtfd.io", &
       "-C, --directory <dir>", "Directory containing data set", &
       "    --ftol <real>", "Tolerance for convergence of error on data set", &
       "    --xtol <real>", "Tolerance for convergence of parameters", &

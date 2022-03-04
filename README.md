@@ -2,7 +2,6 @@
 
 This project provides a driver for optimization of damping parameters in the DFT-D4 method.
 
-
 ## Installation
 
 To use this project the following dependencies are required
@@ -13,9 +12,10 @@ To use this project the following dependencies are required
   for the optimization of the damping parameters
 - [`nlopt-f`](https://github.com/grimme-lab/nlopt-f),
   to provide Fortran bindings for `nlopt`
+- [`minpack`](https://github.com/fortran-lang/minpack),
+  for the optimization of the damping parameters
 - [`mctc-lib`](https://github.com/grimme-lab/mctc-lib),
   for reading geometry inputs when creating the data set
-
 
 ### Meson
 
@@ -40,11 +40,10 @@ Finally, you install the binary with
 meson install -C _build
 ```
 
-
 ### Fortran package manager
 
 This project is built with the Fortran package manager ([fpm](https://github.com/fortran-lang/fpm)).
-Fpm will handle the dependencies for `dftd4`, `nlopt-f` and `mctc-lib`, only `nlopt` has to be provided on the system.
+Fpm will handle the dependencies for `dftd4`, `minpack`, `nlopt-f` and `mctc-lib`, only `nlopt` has to be provided on the system.
 
 To create the binaray use
 
@@ -55,9 +54,7 @@ fpm install --profile release --flag -fopenmp
 This will install `dftd4-fit` to `~/.local/bin` on Unix and `%APPDATA%\local\bin` on Windows.
 Make sure the respective directories are in your `PATH` or adjust the installation prefix with the `--prefix` option.
 
-
 ## Usage
-
 
 ```
 git clone https://github.com/dftd4/dftd4-fitset
@@ -83,7 +80,6 @@ fpm run -- --help
 
 For an overview over all command line arguments use the `--help` argument or checkout the [`dftd4-fit(1)`](man/dftd4-fit.1.adoc) manpage.
 
-
 ## License
 
 This project is free software: you can redistribute it and/or modify it under
@@ -93,7 +89,7 @@ the Free Software Foundation, either version 3 of the License, or
 
 This project is distributed in the hope that it will be useful,
 but without any warranty; without even the implied warranty of
-merchantability or fitness for a particular purpose.  See the
+merchantability or fitness for a particular purpose. See the
 Lesser GNU General Public License for more details.
 
 Unless you explicitly state otherwise, any contribution intentionally

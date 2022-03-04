@@ -113,10 +113,13 @@ contains
       write (io, '(a, 1x, i0)') "Number of data points", size(dataset%records)
       write (io, '(a, 1x, i0)') "Number of evaluations", size(dataset%jobs)
 
-      if (.true.) then
+      if (config%optimizer == "MINPACK") then
          call run_minpack(dataset, config, x, 1)
-      else
+      else if (config%optimizer == "NLOPT") then
          call run_nlopt(dataset, config, x, error)
+      else
+         call fatal_error(error, "Invalid optimizer '"//config%optimizer//"'")
+         return
       end if
 
       write (io, '(a)') "Final parameters"
@@ -255,6 +258,8 @@ contains
          end if
          call create(opt, ialg, size(x))
       end associate
+
+      write (io, '(/, a)') "Optimizing (using NLOPT with '"//config%algorithm//"' algorithm) ..." 
 
       if (allocated(config%xtol)) then
          call opt%set_xtol_rel(config%xtol)
