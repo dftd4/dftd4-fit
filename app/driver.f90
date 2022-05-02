@@ -26,7 +26,7 @@ module dftd4_driver
    use dftd4_cli, only: cli_config, fit_config, header
    use nlopt_wrap
    use nlopt_enum
-   use minpack_module, only: lmdif1
+   use minpack_module, only: lmder, lmdif
    implicit none
    private
 
@@ -105,7 +105,7 @@ contains
          return
       end if
 
-      call read_dataset(config%input, dataset, config%directory, error)
+      call read_dataset(config%input, config%basename, dataset, config%directory, error)
       if (allocated(error)) return
       dataset%io = io
 
@@ -144,8 +144,10 @@ contains
       real(wp) :: tol
       !> Value of function at x
       real(wp), allocatable :: fvec(:)
+      !> Jacobian matrix
+      real(wp), allocatable :: fjac(:, :)
       !> Work array for minpack
-      real(wp), allocatable :: wa(:)
+      real(wp), allocatable :: diag(:), qtf(:), wa1(:), wa2(:), wa3(:), wa4(:)
       !> Integer work array for minpack of length n
       integer, allocatable :: iwa(:)
 
@@ -153,6 +155,8 @@ contains
       integer :: io
       ! Exit parameter
       integer :: info
+      integer :: nfev, njev, maxfev, mode
+      real(wp), parameter :: factor = 1.0_wp
 
       intrinsic :: norm2
 
@@ -169,18 +173,84 @@ contains
       tol = sqrt(epsilon(1._wp))
 
       allocate (fvec(m))
-      allocate (wa(m*n + 5*n + m))
+      allocate (diag(n), qtf(n), wa1(n), wa2(n), wa3(n), wa4(m))
       allocate (iwa(n))
+      allocate (fjac(m, n))
 
       write (io, '(/, a)') 'Optimizing (using MINPACK) ...'
+      diag(:) = 1.0_wp
+      nfev = 0
+      njev = 0
 
-      call lmdif1(fcn, m, n, x, fvec, tol, info, iwa, wa, size(wa))
+      if (config%algorithm == "lmdif") then
+         maxfev = 200 * (n + 1)
+         mode = 2
+         call lmdif(single_eval, m, n, x, fvec, tol, tol, 0.0_wp, maxfev, 0.0_wp, diag, &
+            & mode, factor, config%verbosity, info, nfev, fjac, m, iwa, qtf, &
+            & wa1, wa2, wa3, wa4)
+      else
+         maxfev = 100 * (n + 1)
+         mode = 1
+         call lmder(fcn_lmder, m, n, x, fvec, fjac, m, tol, tol, 0.0_wp, maxfev,   &
+            & diag, mode, factor, config%verbosity, info, nfev, njev, iwa, qtf, &
+            & wa1, wa2, wa3, wa4)
+      end if
 
       write (io, '(/, a, f15.7)') 'Final L2 norm of the residuals:', norm2(fvec)
       write (io, '(a, 13x, i10, /)') 'Exit parameter:', info
    contains
       !> User-supplied subroutine which calculates the functions
-      subroutine fcn(m, n, x, fvec, iflag)
+      subroutine fcn_lmder(m, n, x, fvec, fjac, ldfjac, iflag)
+         !> Number of datapoints/functions
+         integer, intent(in) :: m
+         !> Number of variables (n must not exceed m)
+         integer, intent(in) :: n
+         !> leading dimension of the array fjac.
+         integer, intent(in) :: ldfjac
+         !> Independant variable vector
+         real(wp), intent(in) :: x(n)
+         !> Value of function at x
+         real(wp), intent(inout) :: fvec(m)
+         !> jacobian matrix at `x`
+         real(wp), intent(inout) :: fjac(ldfjac, n)
+         !> Status
+         integer, intent(inout) :: iflag
+
+         integer :: ix, info
+         real(wp), parameter :: step = 1.0e-3_wp
+         real(wp), allocatable :: fl(:), fr(:), y(:)
+
+         class(damping_param), allocatable :: param
+
+         if (iflag == 0) then
+            write (io, '(*(4x, a, 1x, f7.4))') &
+               & "MD", sum(fvec)/size(fvec)*autokcal, &
+               & "MAD", sum(abs(fvec))/size(fvec)*autokcal, &
+               & "RMSD", sqrt(sum((fvec)**2)/size(fvec))*autokcal, &
+               & "SD", sqrt(sum(abs(fvec - sum(fvec)/size(fvec))**2)/size(fvec))*autokcal
+            return
+         end if
+
+         if (iflag == 1) then
+            call single_eval(m, n, x, fvec, iflag)
+         else
+            info = 1
+            y = x
+            fl = fvec
+            fr = fvec
+            do ix = 1, n
+               y(ix) = x(ix) + step
+               call single_eval(m, n, y, fl, info)
+               y(ix) = x(ix) - step
+               call single_eval(m, n, y, fr, info)
+               y(ix) = x(ix)
+               fjac(:, ix) = (fl - fr) / (2 * step)
+            end do
+         end if
+      end subroutine fcn_lmder
+
+      !> User-supplied subroutine which calculates the functions
+      subroutine single_eval(m, n, x, fvec, iflag)
          !> Number of datapoints/functions
          integer, intent(in) :: m
          !> Number of variables (n must not exceed m)
@@ -198,7 +268,14 @@ contains
 
          class(damping_param), allocatable :: param
 
-         if (iflag == 0) return
+         if (iflag == 0) then
+            write (io, '(*(4x, a, 1x, f7.4))') &
+               & "MD", sum(fvec)/size(fvec)*autokcal, &
+               & "MAD", sum(abs(fvec))/size(fvec)*autokcal, &
+               & "RMSD", sqrt(sum((fvec)**2)/size(fvec))*autokcal, &
+               & "SD", sqrt(sum(abs(fvec - sum(fvec)/size(fvec))**2)/size(fvec))*autokcal
+            return
+         end if
 
          param = from_array(x)
 
@@ -218,16 +295,8 @@ contains
             end associate
          end do
 
-         fvec = actual - dataset%records%reference
-
-         if (verbosity > 0) then
-            write (io, '(*(4x, a, 1x, f7.4))') &
-               & "MD", sum(fvec)/size(fvec)*autokcal, &
-               & "MAD", sum(abs(fvec))/size(fvec)*autokcal, &
-               & "RMSD", sqrt(sum((fvec)**2)/size(fvec))*autokcal, &
-               & "SD", sqrt(sum(abs(fvec - sum(fvec)/size(fvec))**2)/size(fvec))*autokcal
-         end if
-      end subroutine fcn
+         fvec(:) = dataset%records%reference - actual
+      end subroutine single_eval
    end subroutine run_minpack
 
    !> Wrapper for NLOPT optimizer
@@ -396,20 +465,22 @@ contains
          y(i) = x(i) + step
          param = from_array(y)
          call single_eval(dataset, from_array(y), fl, 0)
-         y(i) = x(i) - 2*step
+         y(i) = x(i) - step
          param = from_array(y)
          call single_eval(dataset, from_array(y), fr, 0)
          gradient(i) = (fl - fr)/(2*step)
-         y(i) = x(i) + step
+         y(i) = x(i)
       end do
    end subroutine grad_eval
 
    !> Create job for evaluation of an entry of a data set
-   subroutine create_job(job, lentry, directory, error)
+   subroutine create_job(job, lentry, basename, directory, error)
       !> Working instructions for entry
       type(job_type), intent(out) :: job
       !> Entry to be expanded
       type(entry_type), intent(in) :: lentry
+      !> Name of the geometry input
+      character(len=*), intent(in) :: basename
       !> Working directory
       character(len=*), intent(in), optional :: directory
       !> Error handling
@@ -421,9 +492,9 @@ contains
       logical :: exist
 
       if (present(directory)) then
-         input = directory//"/"//lentry%dir//"/mol.xyz"
+         input = directory//"/"//lentry%dir//"/"//basename
       else
-         input = lentry%dir//"/mol.xyz"
+         input = lentry%dir//"/"//basename
       end if
 
       call read_structure(job%mol, input, error)
@@ -471,9 +542,11 @@ contains
    end subroutine run_job
 
    !> Read the dataset from the input file
-   subroutine read_dataset(filename, dataset, directory, error)
+   subroutine read_dataset(filename, basename, dataset, directory, error)
       !> File name
       character(len=*), intent(in) :: filename
+      !> Basename of the coordinate file
+      character(len=*), intent(in) :: basename
       !> Data set for fitting
       type(dataset_type), intent(out) :: dataset
       !> Working directory
@@ -500,7 +573,7 @@ contains
 
       allocate (dataset%jobs(size(entries)))
       do ijob = 1, size(entries)
-         call create_job(dataset%jobs(ijob), entries(ijob), directory, error)
+         call create_job(dataset%jobs(ijob), entries(ijob), basename, directory, error)
       end do
    end subroutine read_dataset
 
@@ -515,9 +588,10 @@ contains
 
       type(entry_type) :: lentry
       integer :: first, last, irec, coeff, stat
+      logical :: dir
 
       allocate (record%idx(0), record%coeffs(0))
-      coeff = -1
+      dir = .false.
       first = 1
       last = 0
       do
@@ -529,14 +603,18 @@ contains
 
          !print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
 
-         lentry%dir = trim(adjustl(line(first:last)))
-         call push_back(entries, lentry)
+         if (dir) then
+            lentry%dir = trim(adjustl(line(first:last)))
+            call push_back(entries, lentry)
 
-         record%idx = [record%idx, find(entries, lentry%dir)]
-         record%coeffs = [record%coeffs, coeff]
+            record%idx = [record%idx, find(entries, lentry%dir)]
+         else
+            read(line(first:last), *) coeff
+            record%coeffs = [record%coeffs, coeff]
+         end if
+         dir = .not.dir
 
          first = last + 2
-         coeff = 1
       end do
 
       read (line(first:), *, iostat=stat) record%reference

@@ -38,6 +38,8 @@ module dftd4_cli
    type, extends(cli_config) :: fit_config
       !> Input file for data set
       character(len=:), allocatable :: input
+      !> Basename of the input file
+      character(len=:), allocatable :: basename
       !> Verbosity of the output
       integer :: verbosity = 2
       !> Selected optimizer
@@ -132,6 +134,14 @@ subroutine get_fit_arguments(config, list, start, error)
          config%verbosity = config%verbosity + 1
       case("-s", "--silent")
          config%verbosity = config%verbosity - 1
+      case("-f", "--file")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for directory")
+            exit
+         end if
+         call move_alloc(arg, config%basename)
       case default
          if (.not.allocated(config%input)) then
             call move_alloc(arg, config%input)
@@ -207,6 +217,10 @@ subroutine get_fit_arguments(config, list, start, error)
 
    if (.not.allocated(config%x)) then
       config%x = [1.0_wp, 0.4_wp, 5.0_wp]
+   end if
+
+   if (.not.allocated(config%basename)) then
+      config%basename = "mol.xyz"
    end if
 
    if (.not.any([allocated(config%xtol), allocated(config%ftol)])) then
