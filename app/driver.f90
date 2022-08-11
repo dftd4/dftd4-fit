@@ -591,7 +591,7 @@ contains
       logical :: dir
 
       allocate (record%idx(0), record%coeffs(0))
-      dir = .false.
+      coeff = -1
       first = 1
       last = 0
       do
@@ -603,18 +603,16 @@ contains
 
          !print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
 
-         if (dir) then
-            lentry%dir = trim(adjustl(line(first:last)))
-            call push_back(entries, lentry)
+         lentry%dir = trim(adjustl(line(first:last)))
+         call push_back(entries, lentry)
 
-            record%idx = [record%idx, find(entries, lentry%dir)]
-         else
-            read(line(first:last), *) coeff
-            record%coeffs = [record%coeffs, coeff]
-         end if
-         dir = .not.dir
+         record%idx = [record%idx, find(entries, lentry%dir)]
+         record%coeffs = [record%coeffs, coeff]
 
          first = last + 2
+         
+         coeff = 1
+
       end do
 
       read (line(first:), *, iostat=stat) record%reference
