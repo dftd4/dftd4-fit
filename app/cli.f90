@@ -52,6 +52,10 @@ module dftd4_cli
       real(wp), allocatable :: xtol
       !> Tolerance for convergence of error on data set
       real(wp), allocatable :: ftol
+      !> Lower bound for all optimization parameters
+      real(wp), allocatable :: bound_lower
+      !> Upper bound for all optimization parameters
+      real(wp), allocatable :: bound_upper
       !> Starting parameters
       real(wp), allocatable :: x(:)
    end type fit_config
@@ -161,7 +165,7 @@ subroutine get_fit_arguments(config, list, start, error)
             exit
          end if
          call move_alloc(arg, config%directory)
-      case("--algorithm")
+      case("-a", "--algorithm")
          iarg = iarg + 1
          call list%get(iarg, arg)
          if (.not.allocated(arg)) then
@@ -188,6 +192,18 @@ subroutine get_fit_arguments(config, list, start, error)
          iarg = iarg + 1
          call list%get(iarg, arg)
          call get_argument_as_real(arg, config%xtol, error)
+         if (allocated(error)) exit
+      case("--bound_lower")
+         allocate(config%bound_lower)
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%bound_lower, error)
+         if (allocated(error)) exit
+      case("--bound_upper")
+         allocate(config%bound_upper)
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         call get_argument_as_real(arg, config%bound_upper, error)
          if (allocated(error)) exit
       case("--param")
          allocate(config%x(3))
@@ -276,16 +292,20 @@ subroutine help(unit)
       "for the respective functional in Hartree.", &
       ""
 
-   write(unit, '(2x, a, t25, a)') &
+   write(unit, '(2x, a, t28, a)') &
       "-v, --verbose", "Show more, can be used multiple times", &
       "-s, --silent", "Show less, use twice to supress all output", &
       "    --optimizer <str>", "Name of the library used for optimization", &
       "", "options: MINPACK (default) and NLOPT", &
-      "    --algorithm <str>", "Name of the algorithm used for optimization", &
+      "-a, --algorithm <str>", "Name of the algorithm used for optimization", &
       "", "available algorithms for NLOPT can be found at https://nlopt.rtfd.io", &
       "-C, --directory <dir>", "Directory containing data set", &
       "    --ftol <real>", "Tolerance for convergence of error on data set", &
       "    --xtol <real>", "Tolerance for convergence of parameters", &
+      "    --bound_lower <real>", &
+          & "Lower bound for all optimization parameters", &
+      "    --bound_upper <real>", &
+          & "Upper bound for all optimization parameters", &
       "    --param <real>...", "Initial parameters (s8, a1, a2)", &
       "    --version", "Print program version and exit", &
       "    --citation", "Print citation information and exit", &

@@ -113,7 +113,7 @@ contains
       write (io, '(a, 1x, i0)') "Number of evaluations", size(dataset%jobs)
 
       if (config%optimizer == "MINPACK") then
-         call run_minpack(dataset, config, x, 1)
+         call run_minpack(dataset, config, x, 1, error)
       else if (config%optimizer == "NLOPT") then
          call run_nlopt(dataset, config, x, error)
       else
@@ -121,12 +121,12 @@ contains
          return
       end if
 
-      write (io, '(a)') "Final parameters"
+      write (io, '(/, a)') "Final parameters"
       write (io, *) x
    end subroutine fit_main
 
    !> Wrapper for MINPACK optimizer
-   subroutine run_minpack(dataset, config, x, verbosity)
+   subroutine run_minpack(dataset, config, x, verbosity, error)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
       !> Complete data set for the optimization
@@ -135,6 +135,8 @@ contains
       real(wp), allocatable, intent(out) :: x(:)
       !> Verbosity of printout
       integer, intent(in) :: verbosity
+      !> Error handling
+      type(error_type), allocatable, intent(inout) :: error
 
       !> Number of datapoints/functions
       integer :: m
@@ -157,6 +159,7 @@ contains
       integer :: info
       integer :: nfev, njev, maxfev, mode
       real(wp), parameter :: factor = 1.0_wp
+      character(len=2) tmp
 
       intrinsic :: norm2
 
@@ -196,8 +199,15 @@ contains
             & wa1, wa2, wa3, wa4)
       end if
 
-      write (io, '(/, a, f15.7)') 'Final L2 norm of the residuals:', norm2(fvec)
-      write (io, '(a, 13x, i10, /)') 'Exit parameter:', info
+      if (info < 0) then
+         write (tmp, '(I1)') info
+         call fatal_error(error, "Optimization failed with "//tmp)
+      else
+         write (tmp, '(I1)') info
+         write (io, '(/, a)') "Optimization terminated with status "//tmp
+         write (io, '(a, f15.7)') 'Final L2 norm of the residuals:', norm2(fvec)
+      end if
+
    contains
       !> User-supplied subroutine which calculates the functions
       subroutine fcn_lmder(m, n, x, fvec, fjac, ldfjac, iflag)
@@ -338,8 +348,13 @@ contains
       if (allocated(config%ftol)) then
          call opt%set_ftol_rel(config%ftol)
       end if
-      call opt%set_lower_bounds1(0.0_wp)
-      call opt%set_upper_bounds1(10.0_wp)
+
+      if (allocated(config%bound_lower)) then
+         call opt%set_lower_bounds1(config%bound_lower)
+      end if
+      if (allocated(config%bound_upper)) then
+         call opt%set_upper_bounds1(config%bound_upper)
+      end if
 
       associate (f => nlopt_func(evaluator, dataset))
          call opt%set_min_objective(f)
@@ -348,7 +363,7 @@ contains
       if (stat < 0) then
          call fatal_error(error, "Optimization failed with "//result_to_string(stat))
       else
-         write (io, '(a)') "Optimization terminated with status "//result_to_string(stat)
+         write (io, '(/, a)') "Optimization terminated with status "//result_to_string(stat)
       end if
    end subroutine run_nlopt
 
