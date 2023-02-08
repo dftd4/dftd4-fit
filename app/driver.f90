@@ -95,8 +95,6 @@ contains
       ! Complete data set for the optimization
       type(dataset_type) :: dataset
       logical :: exist
-      integer :: stat
-      real(wp) :: obj
       real(wp), allocatable :: x(:)
 
       inquire (file=config%input, exist=exist)
@@ -113,7 +111,7 @@ contains
       write (io, '(a, 1x, i0)') "Number of evaluations", size(dataset%jobs)
 
       if (config%optimizer == "MINPACK") then
-         call run_minpack(dataset, config, x, 1, error)
+         call run_minpack(dataset, config, x, error)
       else if (config%optimizer == "NLOPT") then
          call run_nlopt(dataset, config, x, error)
       else
@@ -126,15 +124,13 @@ contains
    end subroutine fit_main
 
    !> Wrapper for MINPACK optimizer
-   subroutine run_minpack(dataset, config, x, verbosity, error)
+   subroutine run_minpack(dataset, config, x, error)
       !> Configuration for this driver
       type(fit_config), intent(in) :: config
       !> Complete data set for the optimization
       type(dataset_type), intent(in) :: dataset
       !> Independant variable vector
       real(wp), allocatable, intent(out) :: x(:)
-      !> Verbosity of printout
-      integer, intent(in) :: verbosity
       !> Error handling
       type(error_type), allocatable, intent(inout) :: error
 
@@ -230,8 +226,6 @@ contains
          real(wp), parameter :: step = 1.0e-3_wp
          real(wp), allocatable :: fl(:), fr(:), y(:)
 
-         class(damping_param), allocatable :: param
-
          if (iflag == 0) then
             write (io, '(*(4x, a, 1x, f7.4))') &
                & "MD", sum(fvec)/size(fvec)*autokcal, &
@@ -321,9 +315,7 @@ contains
       type(error_type), allocatable, intent(inout) :: error
 
       !> Unit for output
-      integer :: io
-      logical :: exist
-      integer :: stat
+      integer :: io, stat
       real(wp) :: obj
       type(nlopt_opt) :: opt
 
@@ -545,13 +537,6 @@ contains
       !> Dispersion energy
       real(wp), intent(out) :: energy
 
-      character(len=:), allocatable :: input
-      type(structure_type) :: mol
-      type(d4_model) :: d4
-      real(wp) :: charge
-      integer :: stat, unit
-      logical :: exist
-
       call get_dispersion(job%mol, job%d4, param, realspace_cutoff(), energy)
 
    end subroutine run_job
@@ -602,8 +587,7 @@ contains
       type(entry_type), allocatable, intent(inout) :: entries(:)
 
       type(entry_type) :: lentry
-      integer :: first, last, irec, coeff, stat
-      logical :: dir
+      integer :: first, last, coeff, stat
 
       allocate (record%idx(0), record%coeffs(0))
       coeff = -1
