@@ -8,8 +8,9 @@ dftd4-fit - Damping parameter optimization for DFT-D4
 *dftd4-fit* [-h|--help] [--version] [--license] [--citation]
             [-v|--verbose] [-s|--silent]
             [-C|--directory <directory>] [--optimizer <optimizer>] 
-            [--algorithm <algorithm>] [--ftol <tol>]
+            [-a|--algorithm <algorithm>] [--ftol <tol>]
             [--xtol <tol>] [--param <s8> <a1> <a2>]
+            [--bound_lower <val>] [--bound_upper <val>]
             <input>
 
 == Description
@@ -46,7 +47,7 @@ the respective directories, like present in https://github.com/dftd4/dftd4-fitse
   Name of the library used for optimization.
   Options: MINPACK (default) and NLOPT
 
-*--algorithm* _str_::
+*-a, --algorithm* _str_::
   Name of the algorithm used for optimization.
   Available algorithms can be found at https://nlopt.rtfd.io
   The default algorithm is 'LN_NEWUOA_BOUND'.
@@ -59,6 +60,12 @@ the respective directories, like present in https://github.com/dftd4/dftd4-fitse
 
 *--xtol* _real_::
   Tolerance for convergence of parameters
+
+*--bound_lower* _real_::
+  Lower bound for all optimization parameters
+
+*--bound_upper* _real_::
+  Upper bound for all optimization parameters
 
 *--param* _s8_ _a1_ _a2_::
   Initial parameters (s8, a1, a2)
