@@ -1,6 +1,21 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "*.rst"
+      - ".*"
+
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - "*.rst"
+      - ".*"
+
+  workflow_dispatch:
 
 env:
   BUILD_DIR: _build
@@ -40,9 +55,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    - uses: actions/setup-python@v1
+    - name: Setup Python version ${{ env.PYTHON_V }}
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_V }}
 
@@ -50,7 +66,9 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') && matrix.compiler == 'gnu' }}
       run: |
           brew install gcc@${{ env.GCC_V }}
-          ln -s /usr/local/bin/gfortran-${GCC_V} /usr/local/bin/gfortran
+          ln -s /usr/local/bin/gfortran-${{ env.GCC_V }} /usr/local/bin/gfortran
+          ln -s /usr/local/bin/gcc-${{ env.GCC_V }} /usr/local/bin/gcc
+          ln -s /usr/local/bin/g++-${{ env.GCC_V }} /usr/local/bin/g++
           which gfortran-${GCC_V}
           which gfortran
 
