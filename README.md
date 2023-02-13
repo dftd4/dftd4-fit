@@ -8,7 +8,7 @@ To use this project the following dependencies are required
 
 - [`dftd4`](https://github.com/dftd4/dftd4) version 3.0.0 or newer,
   for evaluation of the DFT-D4 dispersion correction
-- [`nlopt`](https://nlopt.readthedocs.io) version 2.0.0 or newer,
+- [`nlopt`](https://nlopt.readthedocs.io) version 2.0.0 to 2.5.0,
   for the optimization of the damping parameters
 - [`nlopt-f`](https://github.com/grimme-lab/nlopt-f),
   to provide Fortran bindings for `nlopt`
