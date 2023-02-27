@@ -61,7 +61,17 @@ git clone https://github.com/dftd4/dftd4-fitset
 dftd4-fit -C dftd4-fitset ./data.csv
 ```
 
-The data set must contain the dispersion energies for each reaction in Hartree:
+The data set must contain the missing dispersion energies for each reaction in Hartree.
+The missing dispersion energy is calculated as follows:
+
+```math
+\left(E^{\text{complex}}_{\text{DFT}} - \sum_i^\text{monomers} E^{i}_{\text{DFT}}\right) - \left(E^{\text{complex}}_{\text{reference}} - \sum_i^\text{monomers} E^{i}_{\text{reference}} \right) = \sum_i^\text{reactants} \vartheta^i E^{i}_{\text{DFT}} - \sum_i^\text{reactants} \vartheta^i E^{i}_{\text{reference}}
+```
+
+Note that the first entry must be the product (stoichiometry factor $\vartheta = -1$).
+All other entries are assumed to be educts (stoichiometry factor $\vartheta = 1$).
+Variable stoichiometries are not supported at the moment.
+An example is given below:
 
 ```csv
 S22x5/01-0.9, S22x5/01-A, S22x5/01-B, 1.0007611865e-03
@@ -71,6 +81,8 @@ S22x5/01-1.5, S22x5/01-A, S22x5/01-B, 1.2297590834e-03
 S22x5/01-2.0, S22x5/01-A, S22x5/01-B, 6.2420992500e-04
 ...
 ```
+
+
 
 For more information checkout the project help page
 
