@@ -40,6 +40,8 @@ module dftd4_cli
       character(len=:), allocatable :: input
       !> Basename of the input file
       character(len=:), allocatable :: basename
+      !> Format of input file
+      integer :: format = 1
       !> Verbosity of the output
       integer :: verbosity = 2
       !> Selected optimizer
@@ -157,6 +159,15 @@ subroutine get_fit_arguments(config, list, start, error)
             call fatal_error(error, "Too many positional arguments present")
          end if
          exit
+      case("--format")
+         iarg = iarg + 1
+         call list%get(iarg, arg)
+         if (.not.allocated(arg)) then
+            call fatal_error(error, "Missing argument for format")
+            exit
+         end if
+         call get_argument_as_int(arg, config%format, error)
+         if (allocated(error)) exit
       case("-C", "--directory")
          iarg = iarg + 1
          call list%get(iarg, arg)
@@ -251,6 +262,32 @@ subroutine get_fit_arguments(config, list, start, error)
    end if
 
 end subroutine get_fit_arguments
+
+
+subroutine get_argument_as_int(arg, val, error)
+
+   !> Index of command line argument, range [0:command_argument_count()]
+   character(len=:), intent(in), allocatable :: arg
+
+   !> Real value
+   integer, intent(out) :: val
+
+   !> Error handling
+   type(error_type), allocatable :: error
+
+   integer :: stat
+
+   if (.not.allocated(arg)) then
+      call fatal_error(error, "Cannot read integer value, argument missing")
+      return
+   end if
+   read(arg, *, iostat=stat) val
+   if (stat /= 0) then
+      call fatal_error(error, "Cannot read integer value from '"//arg//"'")
+      return
+   end if
+
+end subroutine get_argument_as_int
 
 
 subroutine get_argument_as_real(arg, val, error)

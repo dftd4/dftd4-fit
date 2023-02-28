@@ -68,9 +68,12 @@ The missing dispersion energy is calculated as follows:
 \left(E^{\text{complex}}_{\text{DFT}} - \sum_i^\text{monomers} E^{i}_{\text{DFT}}\right) - \left(E^{\text{complex}}_{\text{reference}} - \sum_i^\text{monomers} E^{i}_{\text{reference}} \right) = \sum_i^\text{reactants} \vartheta^i E^{i}_{\text{DFT}} - \sum_i^\text{reactants} \vartheta^i E^{i}_{\text{reference}}
 ```
 
+#### Input Format 1: No stoichiometry coefficients
+
+This format is the default (`--format 1`).
+
 Note that the first entry must be the product (stoichiometry factor $\vartheta = -1$).
 All other entries are assumed to be educts (stoichiometry factor $\vartheta = 1$).
-Variable stoichiometries are not supported at the moment.
 An example is given below:
 
 ```csv
@@ -82,7 +85,21 @@ S22x5/01-2.0, S22x5/01-A, S22x5/01-B, 6.2420992500e-04
 ...
 ```
 
+#### Input Format 2: Explicit stoichiometry coeffiecients
 
+This option can be requested with `--format 2`.
+
+Here, the stoichiometry coefficients must be given after the directory name, i.e., directory name and stoichiometry coefficient are given in an alternating fashion.
+The example from above would now look as follows:
+
+```csv
+S22x5/01-0.9, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.0007611865e-03
+S22x5/01-1.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.5228237266e-03
+S22x5/01-1.2, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.6586059147e-03
+S22x5/01-1.5, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.2297590834e-03
+S22x5/01-2.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 6.2420992500e-04
+...
+```
 
 For more information checkout the project help page
 
