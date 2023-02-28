@@ -103,7 +103,7 @@ contains
          return
       end if
 
-      call read_dataset(config%input, config%basename, dataset, config%directory, error)
+      call read_dataset(config%input, config%format, config%basename, dataset, config%directory, error)
       if (allocated(error)) return
       dataset%io = io
 
@@ -542,9 +542,11 @@ contains
    end subroutine run_job
 
    !> Read the dataset from the input file
-   subroutine read_dataset(filename, basename, dataset, directory, error)
+   subroutine read_dataset(filename, format, basename, dataset, directory, error)
       !> File name
       character(len=*), intent(in) :: filename
+      !> Format of the input file
+      integer :: format
       !> Basename of the coordinate file
       character(len=*), intent(in) :: basename
       !> Data set for fitting
@@ -566,7 +568,8 @@ contains
       do while (stat == 0)
          call getline(unit, line, stat)
          if (stat /= 0) exit
-         call read_record(line, record, entries)
+         call read_record(line, record, entries, format, error)
+         if (allocated(error)) return
          dataset%records = [dataset%records, record]
       end do
       close (unit)
@@ -574,47 +577,113 @@ contains
       allocate (dataset%jobs(size(entries)))
       do ijob = 1, size(entries)
          call create_job(dataset%jobs(ijob), entries(ijob), basename, directory, error)
+         if (allocated(error)) return
       end do
    end subroutine read_dataset
 
    !> Read record from a line
-   subroutine read_record(line, record, entries)
+   subroutine read_record(line, record, entries, format, error)
       !> Line
       character(len=*), intent(in) :: line
       !> Record
       type(record_type), intent(out) :: record
       !> Entries
       type(entry_type), allocatable, intent(inout) :: entries(:)
+      !> Format of input file
+      integer :: format
+      !> Error handling
+      type(error_type), allocatable, intent(out) :: error
 
       type(entry_type) :: lentry
-      integer :: first, last, coeff, stat
+      integer :: first, last, coeff, stat, counter
+      character(len=10) :: format_string, coeff_string
 
       allocate (record%idx(0), record%coeffs(0))
-      coeff = -1
       first = 1
       last = 0
-      do
-         last = index(line(first:), ',') + first - 2
-         if (last < first) then
-            last = len(line)
-            exit
-         end if
 
-         !print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
+      select case(format)
+      case(1)
+         ! Stoichiometry factors are not required. First entry is taken as the 
+         ! product. All others are educts.
+         !
+         ! Example:
+         ! S22x5/01-0.9, S22x5/01-A, S22x5/01-B, 1.0007611865e-03
+         ! S22x5/01-1.0, S22x5/01-A, S22x5/01-B, 1.5228237266e-03
+         ! S22x5/01-1.2, S22x5/01-A, S22x5/01-B, 1.6586059147e-03
+         ! S22x5/01-1.5, S22x5/01-A, S22x5/01-B, 1.2297590834e-03
+         ! S22x5/01-2.0, S22x5/01-A, S22x5/01-B, 6.2420992500e-04
+         ! ...
+         coeff = -1
+         do
+            last = index(line(first:), ',') + first - 2
+            if (last < first) then
+               last = len(line)
+               exit
+            end if
 
-         lentry%dir = trim(adjustl(line(first:last)))
-         call push_back(entries, lentry)
+            !print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
 
-         record%idx = [record%idx, find(entries, lentry%dir)]
-         record%coeffs = [record%coeffs, coeff]
+            lentry%dir = trim(adjustl(line(first:last)))
+            call push_back(entries, lentry)
 
-         first = last + 2
-         
-         coeff = 1
+            record%idx = [record%idx, find(entries, lentry%dir)]
+            record%coeffs = [record%coeffs, coeff]
 
-      end do
+            first = last + 2
+            
+            coeff = 1
+         end do
+      case(2)
+         ! Stoichiometry factors are explicitly given after the directory.
+         !
+         ! Example:
+         ! S22x5/01-0.9, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.0007611865e-03
+         ! S22x5/01-1.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.5228237266e-03
+         ! S22x5/01-1.2, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.6586059147e-03
+         ! S22x5/01-1.5, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.2297590834e-03
+         ! S22x5/01-2.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 6.2420992500e-04
+         ! ...
+         counter = 1
+         do
+            last = index(line(first:), ',') + first - 2
+            if (last < first) then
+               last = len(line)
+               exit
+            end if
+
+            ! print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
+            
+            if (modulo(counter, 2) == 0) then
+               coeff_string = trim(adjustl(line(first:last)))
+               read(coeff_string, "(I4)", iostat=stat) coeff
+               if (stat /= 0 ) then
+                  call fatal_error(error, "Cannot convert stoichiometry coefficient '"//coeff_string//"' to integer")
+                  return
+               end if
+
+               record%coeffs = [record%coeffs, coeff]
+            else
+               lentry%dir = trim(adjustl(line(first:last)))
+               call push_back(entries, lentry)
+               
+               record%idx = [record%idx, find(entries, lentry%dir)]
+            end if
+
+            first = last + 2
+            counter = counter + 1
+         end do
+      case default
+         write (format_string, "(I4)") format
+         call fatal_error(error, "Unknown format option '"//trim(format_string)//"'")
+         return
+      end select
 
       read (line(first:), *, iostat=stat) record%reference
+      if (stat /= 0 ) then
+         call fatal_error(error, "Cannot read reference energy '"//line(first:)//"'")
+         return
+      end if
    end subroutine read_record
 
    !> Add new entry to table

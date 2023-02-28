@@ -15,7 +15,7 @@ dftd4-fit - Damping parameter optimization for DFT-D4
 
 == Description
 
-Optimization driver for damping parameters in DFT-D4 using NLOpt.
+Optimization driver for damping parameters in DFT-D4 using NLOpt or MINPACK.
 As input a data set is required containing the missing dispersion energies
 for the respective functional in Hartree.
 
@@ -31,8 +31,20 @@ S22x5/01-2.0, S22x5/01-A, S22x5/01-B, 6.2420992500e-04
 ...
 ----
 
+Alternatively, the stoichiometry factors of the reactants can be given explicitly (*--format 2*):
+
+[source,csv]
+----
+S22x5/01-0.9, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.0007611865e-03
+S22x5/01-1.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.5228237266e-03
+S22x5/01-1.2, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.6586059147e-03
+S22x5/01-1.5, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.2297590834e-03
+S22x5/01-2.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 6.2420992500e-04
+...
+----
+
 The geometries for the individual records will be read from `mol.xyz` files in
-the respective directories, like present in https://github.com/dftd4/dftd4-fitset.
+the respective directories as in https://github.com/dftd4/dftd4-fitset.
 
 
 == Options
@@ -54,6 +66,9 @@ the respective directories, like present in https://github.com/dftd4/dftd4-fitse
 
 *-C, --directory* _dir_::
   Directory containing data set
+
+*--format* _integer_::
+  Type of input format
 
 *--ftol* _real_::
   Tolerance for convergence of error on data set
