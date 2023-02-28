@@ -569,8 +569,7 @@ contains
          call getline(unit, line, stat)
          if (stat /= 0) exit
          call read_record(line, record, entries, format, error)
-         if (allocated(error)) exit
-         write(*,*) "after read"
+         if (allocated(error)) return
          dataset%records = [dataset%records, record]
       end do
       close (unit)
@@ -578,7 +577,7 @@ contains
       allocate (dataset%jobs(size(entries)))
       do ijob = 1, size(entries)
          call create_job(dataset%jobs(ijob), entries(ijob), basename, directory, error)
-         if (allocated(error)) exit
+         if (allocated(error)) return
       end do
    end subroutine read_dataset
 
@@ -593,7 +592,7 @@ contains
       !> Format of input file
       integer :: format
       !> Error handling
-      type(error_type), allocatable :: error
+      type(error_type), allocatable, intent(out) :: error
 
       type(entry_type) :: lentry
       integer :: first, last, coeff, stat, counter
@@ -658,14 +657,10 @@ contains
             if (modulo(counter, 2) == 0) then
                coeff_string = trim(adjustl(line(first:last)))
                read(coeff_string, "(I4)", iostat=stat) coeff
-               write(*, *) coeff_string, coeff, stat
-               
                if (stat /= 0 ) then
                   call fatal_error(error, "Cannot convert stoichiometry coefficient '"//coeff_string//"' to integer")
-               write(*, *) "hellpssso"
                   return
                end if
-               write(*, *) "hellpo"
 
                record%coeffs = [record%coeffs, coeff]
             else
@@ -674,8 +669,6 @@ contains
                
                record%idx = [record%idx, find(entries, lentry%dir)]
             end if
-
-            write(*, *) record%coeffs
 
             first = last + 2
             counter = counter + 1
@@ -688,7 +681,7 @@ contains
 
       read (line(first:), *, iostat=stat) record%reference
       if (stat /= 0 ) then
-         call fatal_error(error, "Cannot read reference '"//line(first:)//"'")
+         call fatal_error(error, "Cannot read reference energy '"//line(first:)//"'")
          return
       end if
    end subroutine read_record
