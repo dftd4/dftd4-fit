@@ -603,9 +603,16 @@ contains
       last = 0
 
       select case(format)
-      case(1)
-         ! Stoichiometry factors are not required. First entry is taken as the 
-         ! product. All others are educts.
+      case(0)
+         ! Legacy format: Takes reations as dissociation energies, i.e.,
+         ! first entry is taken as the educt (stoichiometry factor 1). All
+         ! others are products (stoichiometry factor -1). This works because
+         ! the target energies are calculated as `DFT - reference` and not
+         ! `reference - DFT` from interaction energies. In the program,
+         ! however, we use `target - D4`. Correspondingly, the dispersion
+         ! energy must be added to the DFT energy and not subtracted
+         !
+         ! Stoichiometry factors are not required.
          !
          ! Example:
          ! S22x5/01-0.9, S22x5/01-A, S22x5/01-B, 1.0007611865e-03
@@ -634,15 +641,46 @@ contains
             
             coeff = 1
          end do
+      case(1)
+         ! Stoichiometry factors are not required. First entry is taken as the 
+         ! product. All others are educts.
+         !
+         ! Example:
+         ! S22x5/01-0.9, S22x5/01-A, S22x5/01-B, -1.0007611865e-03
+         ! S22x5/01-1.0, S22x5/01-A, S22x5/01-B, -1.5228237266e-03
+         ! S22x5/01-1.2, S22x5/01-A, S22x5/01-B, -1.6586059147e-03
+         ! S22x5/01-1.5, S22x5/01-A, S22x5/01-B, -1.2297590834e-03
+         ! S22x5/01-2.0, S22x5/01-A, S22x5/01-B, -6.2420992500e-04
+         ! ...
+         coeff = 1
+         do
+            last = index(line(first:), ',') + first - 2
+            if (last < first) then
+               last = len(line)
+               exit
+            end if
+
+            !print '(*(a))', line, new_line('a'), repeat(' ', first-1), repeat('=', last-first+1)
+
+            lentry%dir = trim(adjustl(line(first:last)))
+            call push_back(entries, lentry)
+
+            record%idx = [record%idx, find(entries, lentry%dir)]
+            record%coeffs = [record%coeffs, coeff]
+
+            first = last + 2
+            
+            coeff = -1
+         end do
       case(2)
          ! Stoichiometry factors are explicitly given after the directory.
          !
          ! Example:
-         ! S22x5/01-0.9, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.0007611865e-03
-         ! S22x5/01-1.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.5228237266e-03
-         ! S22x5/01-1.2, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.6586059147e-03
-         ! S22x5/01-1.5, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.2297590834e-03
-         ! S22x5/01-2.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 6.2420992500e-04
+         ! S22x5/01-0.9, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.0007611865e-03
+         ! S22x5/01-1.0, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.5228237266e-03
+         ! S22x5/01-1.2, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.6586059147e-03
+         ! S22x5/01-1.5, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.2297590834e-03
+         ! S22x5/01-2.0, 1, S22x5/01-A, -1, S22x5/01-B, -1, -6.2420992500e-04
          ! ...
          counter = 1
          do

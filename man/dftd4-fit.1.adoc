@@ -17,17 +17,17 @@ dftd4-fit - Damping parameter optimization for DFT-D4
 
 Optimization driver for damping parameters in DFT-D4 using NLOpt or MINPACK.
 As input a data set is required containing the missing dispersion energies
-for the respective functional in Hartree.
+(reference - DFT) for the respective functional in Hartree.
 
 The input file is a simple text file containing the following columns:
 
 [source,csv]
 ----
-S22x5/01-0.9, S22x5/01-A, S22x5/01-B, 1.0007611865e-03
-S22x5/01-1.0, S22x5/01-A, S22x5/01-B, 1.5228237266e-03
-S22x5/01-1.2, S22x5/01-A, S22x5/01-B, 1.6586059147e-03
-S22x5/01-1.5, S22x5/01-A, S22x5/01-B, 1.2297590834e-03
-S22x5/01-2.0, S22x5/01-A, S22x5/01-B, 6.2420992500e-04
+S22x5/01-0.9, S22x5/01-A, S22x5/01-B, -1.0007611865e-03
+S22x5/01-1.0, S22x5/01-A, S22x5/01-B, -1.5228237266e-03
+S22x5/01-1.2, S22x5/01-A, S22x5/01-B, -1.6586059147e-03
+S22x5/01-1.5, S22x5/01-A, S22x5/01-B, -1.2297590834e-03
+S22x5/01-2.0, S22x5/01-A, S22x5/01-B, -6.2420992500e-04
 ...
 ----
 
@@ -35,11 +35,11 @@ Alternatively, the stoichiometry factors of the reactants can be given explicitl
 
 [source,csv]
 ----
-S22x5/01-0.9, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.0007611865e-03
-S22x5/01-1.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.5228237266e-03
-S22x5/01-1.2, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.6586059147e-03
-S22x5/01-1.5, -1, S22x5/01-A, 1, S22x5/01-B, 1, 1.2297590834e-03
-S22x5/01-2.0, -1, S22x5/01-A, 1, S22x5/01-B, 1, 6.2420992500e-04
+S22x5/01-0.9, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.0007611865e-03
+S22x5/01-1.0, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.5228237266e-03
+S22x5/01-1.2, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.6586059147e-03
+S22x5/01-1.5, 1, S22x5/01-A, -1, S22x5/01-B, -1, -1.2297590834e-03
+S22x5/01-2.0, 1, S22x5/01-A, -1, S22x5/01-B, -1, -6.2420992500e-04
 ...
 ----
 
