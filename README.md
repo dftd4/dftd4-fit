@@ -61,7 +61,7 @@ git clone https://github.com/dftd4/dftd4-fitset
 dftd4-fit -C dftd4-fitset ./data.csv
 ```
 
-The data set must contain the missing dispersion energies for each (assoziation) reaction in Hartree.
+The data set must contain the missing dispersion energies for each (association) reaction in Hartree.
 The missing dispersion energy is calculated as follows:
 
 ```math
