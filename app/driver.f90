@@ -524,7 +524,8 @@ contains
       end if
       call wrap_to_central_cell(job%mol%xyz, job%mol%lattice, job%mol%periodic)
 
-      call new_d4_model(job%d4, job%mol)
+      call new_d4_model(error, job%d4, job%mol)
+      if (allocated(error)) return
 
    end subroutine create_job
 

@@ -44,6 +44,7 @@ endif
 
 mctc_dep = dependency(
   'mctc-lib',
+  version: '>=0.5.2',
   fallback: ['mctc-lib', 'mctc_dep'],
   default_options: ['default_library=static'],
 )
@@ -51,6 +52,7 @@ exe_deps += mctc_dep
 
 dftd4_dep = dependency(
   'dftd4',
+  version: '>=4.2.0',
   fallback: ['dftd4', 'dftd4_dep'],
   default_options: ['default_library=static'],
 )
