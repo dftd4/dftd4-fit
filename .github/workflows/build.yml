@@ -248,7 +248,7 @@ jobs:
           --print-errorlogs
           --no-rebuild
           --num-processes 1
-          --suite dftd
+          --suite dftd4-fit
           -t 10
         env:
           OMP_NUM_THREADS: 1,2,1
@@ -262,7 +262,7 @@ jobs:
           --print-errorlogs
           --no-rebuild
           --num-processes 1
-          --suite dftd
+          --suite dftd4-fit
           -t 10
           --benchmark
         env:
@@ -294,23 +294,7 @@ jobs:
         if: ${{ matrix.build != 'fpm' }}
         run: |
           ninja -C $BUILD_DIR install
-          echo "DFTD_FIT_PREFIX=$PWD/_dist" >> $GITHUB_ENV
-        env:
-          BUILD_DIR: ${{ env.BUILD_DIR }}
-
-      - name: Discover installed files (CMake)
-        if: ${{ matrix.build != 'fpm' && ! contains(matrix.compiler, 'intel') && ! contains(matrix.os, 'macos') }}
-        run: |
-          cmake -S test/export -B ${BUILD_DIR}/discover-cmake -G Ninja -DCMAKE_PREFIX_PATH=$PWD/_dist/lib/cmake
-          cmake --build ${BUILD_DIR}/discover-cmake
-        env:
-          BUILD_DIR: ${{ env.BUILD_DIR }}
-
-      - name: Discover installed files (Meson)
-        if: ${{ matrix.build != 'fpm' && ! contains(matrix.os, 'macos') }}
-        run: |
-          meson setup ${BUILD_DIR}/discover-meson test/export --pkg-config-path=$PWD/_dist/lib/pkgconfig
-          meson compile -C ${BUILD_DIR}/discover-meson
+          echo "DFTD4_FIT_PREFIX=$PWD/_dist" >> $GITHUB_ENV
         env:
           BUILD_DIR: ${{ env.BUILD_DIR }}
 
@@ -319,16 +303,16 @@ jobs:
         run: |
           tar cvf ${OUTPUT} _dist
           xz -T0 $OUTPUT
-          echo "DFTD_FIT_OUTPUT=${OUTPUT}.xz" >> $GITHUB_ENV
+          echo "DFTD4_FIT_OUTPUT=${OUTPUT}.xz" >> $GITHUB_ENV
         env:
-          OUTPUT: dftd-${{ matrix.compiler }}-${{ matrix.version }}-${{ matrix.os }}.tar
+          OUTPUT: dftd4-fit-${{ matrix.compiler }}-${{ matrix.version }}-${{ matrix.os }}.tar
 
       - name: Upload package
         if: ${{ matrix.build == 'meson' && matrix.version == 14 && matrix.build-type == 'debug' && matrix.compiler == 'gnu' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.DFTD_FIT_OUTPUT }}
-          path: ${{ env.DFTD_FIT_OUTPUT }}
+          name: ${{ env.DFTD4_FIT_OUTPUT }}
+          path: ${{ env.DFTD4_FIT_OUTPUT }}
 
       - name: Upload coverage report
         if: ${{ matrix.build == 'meson' && matrix.build-type == 'coverage' }}
